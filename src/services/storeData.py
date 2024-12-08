@@ -4,7 +4,7 @@ import json
 def store_data(id, data):
     try:
         # Konfigurasi path ke credential
-        path_key = "./submissionmlgc-moestain-e814072b58d0.json"
+        path_key = "./path_key"
         with open(path_key, "r") as file:
             credentials = json.load(file)
 
