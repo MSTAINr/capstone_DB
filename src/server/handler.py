@@ -42,7 +42,8 @@ async def post_predict_handler(file: UploadFile, model):
 async def predict_histories():
     try:
         # Inisialisasi Firestore
-        db = firestore.Client(project="submissionmlgc-moestain")
+        # ganti project id
+        db = firestore.Client(project="project_id")
         predict_collection = db.collection("predictions")
         snapshot = predict_collection.stream()
 
