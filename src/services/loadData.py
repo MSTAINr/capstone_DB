@@ -1,18 +1,9 @@
 import tensorflow as tf
 
-def load_model():
-    """
-    Load a TensorFlow model from a given URL.
-
-    Returns:
-        tf.keras.Model: The loaded TensorFlow model.
-    """
+async def load_model():
     try:
-        model_url = 'https://storage.googleapis.com/path_model'
-        model = tf.keras.models.load_model(model_url)
-        print("Model loaded successfully.")
+        model_url = "https://storage.googleapis.com/payl_model"
+        model = tf.keras.models.load_model(model_url)  # Ganti sesuai format model jika tidak .h5
         return model
-    except Exception as e:
-        print(f"An error occurred while loading the model: {e}")
-        return None
-
+    except Exception as error:
+        raise RuntimeError("Gagal memuat model") from error

@@ -1,71 +1,52 @@
 import uuid
 from datetime import datetime
-from flask import Flask, request, jsonify
+from fastapi import HTTPException, UploadFile
+from inference_service import predict_classification
+from store_data import store_data
 from google.cloud import firestore
-from predict_classification import predict_classification  # Assume this is your predict function
 
-app = Flask(__name__)
-
-# Initialize Firestore client
-db = firestore.Client(project="project_id")
-
-@app.route('/predict', methods=['POST'])
-def post_predict_handler():
-    """
-    Handle prediction request and store the result in Firestore.
-    """
+async def post_predict_handler(file: UploadFile, model):
     try:
-        # Extract image from request payload
-        image = request.files['image'].read()
+        # Membaca gambar dari file upload
+        image_bytes = await file.read()
+        
+        # Prediksi menggunakan model
+        prediction = await predict_classification(model, image_bytes)
+        confidence_score = prediction["confidenceScore"]
+        label = prediction["label"]
+        suggestion = prediction["suggestion"]
 
-        # Load model from app context (assume it is loaded on app startup)
-        model = app.config['MODEL']
-
-        # Perform prediction
-        prediction_result = predict_classification(model, image)
-        confidence_score = prediction_result['confidenceScore']
-        label = prediction_result['label']
-        suggestion = prediction_result['suggestion']
-
-        # Generate unique ID and timestamp
-        prediction_id = str(uuid.uuid4())
+        # Membuat data hasil prediksi
+        id = str(uuid.uuid4())
         created_at = datetime.utcnow().isoformat()
 
-        # Prepare data for Firestore
         data = {
-            "id": prediction_id,
+            "id": id,
             "result": label,
             "suggestion": suggestion,
             "createdAt": created_at,
         }
 
-        # Store data in Firestore
-        # Uncomment below to enable storing predictions
-        # db.collection("predictions").document(prediction_id).set(data)
+        # Simpan data ke Firestore (opsional, aktifkan jika diperlukan)
+        await store_data(id, data)
 
-        # Respond with prediction result
-        return jsonify({
+        return {
             "status": "success",
             "message": "Model is predicted successfully",
-            "data": data
-        }), 201
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": f"Prediction failed: {str(e)}"
-        }), 500
+            "data": data,
+        }
 
-@app.route('/histories', methods=['GET'])
-def predict_histories():
-    """
-    Retrieve prediction history from Firestore.
-    """
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error))
+
+async def predict_histories():
     try:
-        # Fetch all documents from the "predictions" collection
+        # Inisialisasi Firestore
+        db = firestore.Client(project="submissionmlgc-moestain")
         predict_collection = db.collection("predictions")
-        snapshot = predict_collection.get()
+        snapshot = predict_collection.stream()
 
-        # Format the response
+        # Membaca data dari Firestore
         result = []
         for doc in snapshot:
             data = doc.to_dict()
@@ -79,20 +60,10 @@ def predict_histories():
                 },
             })
 
-        # Respond with the history
-        return jsonify({
+        return {
             "status": "success",
-            "data": result
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": f"Failed to retrieve histories: {str(e)}"
-        }), 500
+            "data": result,
+        }
 
-if __name__ == "__main__":
-    # Load your TensorFlow model into Flask app context
-    # from tensorflow.keras.models import load_model
-    # app.config['MODEL'] = load_model('path/to/your/model.h5')
-
-    app.run(debug=True)
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error))
